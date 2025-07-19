@@ -12,9 +12,9 @@ const HomePage = () => {
   const [messages, setMessages] = useState([]);
   const [socket, setSocket] = useState(null);
 
-  // Set up socket connection
+  // 1. Establish socket connection
   useEffect(() => {
-    const newSocket = io("http://localhost:5000"); // adjust if using env vars
+    const newSocket = io("http://localhost:5000");
     setSocket(newSocket);
 
     return () => {
@@ -22,7 +22,7 @@ const HomePage = () => {
     };
   }, []);
 
-  // Fetch logged-in user and all users
+  // 2. Fetch users immediately on load (not waiting for socket)
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -34,17 +34,64 @@ const HomePage = () => {
 
         const res2 = await axios.get("/api/users/all", { headers });
         setAllUsers(res2.data);
-
-        if(socket && res1?.data._id){
-          socket.emit('setOnline', res1.data._id)
-        }
       } catch (error) {
         console.error("Error fetching users:", error);
       }
     };
 
     fetchData();
+  }, []);
+
+  // 3. Emit online status once loggedInUser and socket are both available
+  useEffect(() => {
+    if (socket && loggedInUser?._id) {
+      socket.emit("setOnline", loggedInUser._id);
+    }
+  }, [socket, loggedInUser]);
+
+  // 4. Listen for user status change
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleUserStatusChange = (updatedUsers) => {
+      setAllUsers(updatedUsers);
+    };
+
+    socket.on("userStatusChanged", handleUserStatusChange);
+
+    return () => {
+      socket.off("userStatusChanged", handleUserStatusChange);
+    };
   }, [socket]);
+  useEffect(() => {
+    if (!selectedUser || allUsers.length === 0) return;
+
+    const updated = allUsers.find((u) => u._id === selectedUser._id);
+    if (updated) {
+      setSelectedUser(updated);
+    }
+  }, [allUsers, selectedUser]);
+
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!selectedUser || !loggedInUser) return;
+
+      try {
+        const token = localStorage.getItem("token");
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const res = await axios.get(
+          `/api/messages/${loggedInUser._id}/${selectedUser._id}`,
+          { headers }
+        );
+        setMessages(res.data);
+      } catch (err) {
+        console.error("Failed to load chat messages", err);
+      }
+    };
+
+    fetchMessages();
+  }, [selectedUser, loggedInUser]);
 
   return (
     <div className="home-wrapper">

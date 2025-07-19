@@ -2,7 +2,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #fff;
+  background: transparent;
+  border: 1px solid white;
 }
 
 .rightbar-top {
@@ -12,8 +13,11 @@
   border-bottom: 1px solid #eee;
   position: sticky;
   top: 0;
-  background: #fff;
+  background: transparent;
   z-index: 10;
+  color: white;
+  border: none;
+  border-bottom: 1px solid white;
 }
 
 .selected-profile {
@@ -39,6 +43,12 @@
   flex: 1;
   overflow-y: auto;
   padding: 10px;
+  border: none;
+  height: 0; 
+  max-height: calc(80vh - 160px)
+}
+.message-area::-webkit-scrollbar {
+  width: 6px;
 }
 
 .message-card {
@@ -63,9 +73,11 @@
 }
 
 .message-input {
-  display: flex;
   padding: 10px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid white;
+  display: flex;
+  flex-direction: row;
+
 }
 
 .message-input input {
@@ -77,6 +89,8 @@
 
 .message-input button {
   background: none;
-  border: none;
+  border: 1px solid white;
   margin-left: 10px;
+  color: white;
+  width: 20%;
 }

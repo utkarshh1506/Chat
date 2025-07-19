@@ -5,9 +5,9 @@ const mongoose = require('mongoose');
 const { Server } = require('socket.io');
 const socketIO = require('./socket');
 const userRoute = require('./routes/userRoute')
+const messageRoutes = require("./routes/messageRoutes");
 require('dotenv').config();
-
-const handleSocket = require('./controllers/socket.controller');
+const socketHandler = require('./controllers/socket.controller');
 
 const app = express();
 const server = http.createServer(app);
@@ -30,6 +30,7 @@ const io = socketIO.init(new Server(server, {
 
 
 app.use('/api/users', userRoute)
+app.use("/api/messages", messageRoutes);
 
 // Connect MongoDB
 mongoose
@@ -46,7 +47,7 @@ app.get('/', (req, res) => {
 });
 
 // Delegate socket handling
-handleSocket(io);
+socketHandler(io);
 
 
 const PORT = process.env.PORT || 5000;

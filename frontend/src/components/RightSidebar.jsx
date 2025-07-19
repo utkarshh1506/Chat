@@ -1,9 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./RightSideBar.css";
 import assets from "../assets/assets";
-import axios from "axios";
+import axios from "../api/axios.config";
 
-const RightSideBar = ({ currentUser, selectedUser, messages, setMessages, socket }) => {
+const RightSideBar = ({
+  currentUser,
+  selectedUser,
+  messages,
+  setMessages,
+  socket,
+}) => {
   const [newMessage, setNewMessage] = useState("");
   const messageEndRef = useRef(null);
 
@@ -12,32 +18,36 @@ const RightSideBar = ({ currentUser, selectedUser, messages, setMessages, socket
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Receive messages
+  // Listen for incoming socket messages
   useEffect(() => {
-    socket.on("chatMessage", (message) => {
-      if (
-        (message.username === selectedUser.fullname &&
-         message.room === selectedUser.room) ||
-        message.username === currentUser.fullname
-      ) {
+    const handleIncomingMessage = (message) => {
+      // Show only if it's from/to the selected user
+      const isRelevant =
+        (message.senderId === currentUser._id &&
+          message.receiverId === selectedUser._id) ||
+        (message.senderId === selectedUser._id &&
+          message.receiverId === currentUser._id);
+
+      if (isRelevant) {
         setMessages((prev) => [...prev, message]);
       }
-    });
+    };
 
-    return () => socket.off("chatMessage");
-  }, [selectedUser, socket]);
+    socket.on("chatMessage", handleIncomingMessage);
+    return () => socket.off("chatMessage", handleIncomingMessage);
+  }, [socket, currentUser, selectedUser]);
 
+  // Send message
   const handleSend = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
     const messageData = {
-      room: selectedUser.room,
-      username: currentUser.fullname,
+      senderId: currentUser._id,
+      receiverId: selectedUser._id,
       message: newMessage,
     };
 
-    // Emit to socket and save in DB
     socket.emit("chatMessage", messageData);
 
     try {
@@ -51,7 +61,7 @@ const RightSideBar = ({ currentUser, selectedUser, messages, setMessages, socket
 
   return (
     <div className="rightbar">
-      {/* Top sticky user card */}
+      {/* Top user info */}
       <div className="rightbar-top">
         <img
           src={selectedUser?.profile || assets.avatar_icon}
@@ -66,23 +76,25 @@ const RightSideBar = ({ currentUser, selectedUser, messages, setMessages, socket
         </div>
       </div>
 
-      {/* Scrollable message area */}
+      {/* Chat messages */}
       <div className="message-area">
         {messages.map((msg, index) => (
           <div
             key={index}
             className={`message-card ${
-              msg.username === currentUser.fullname ? "sent" : "received"
+              msg.senderId === currentUser._id ? "sent" : "received"
             }`}
           >
             <p>{msg.message}</p>
-            <small>{msg.username}</small>
+            <small>
+              {msg.senderId === currentUser._id ? "You" : selectedUser.fullname}
+            </small>
           </div>
         ))}
         <div ref={messageEndRef} />
       </div>
 
-      {/* Input area */}
+      {/* Message input */}
       <form className="message-input" onSubmit={handleSend}>
         <input
           type="text"
@@ -90,9 +102,7 @@ const RightSideBar = ({ currentUser, selectedUser, messages, setMessages, socket
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
         />
-        <button type="submit">
-          <img src={assets.send_icon} alt="Send" />
-        </button>
+        <button type="submit">Send</button>
       </form>
     </div>
   );

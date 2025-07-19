@@ -1,97 +1,59 @@
-const mongoose = require("mongoose");
-const User = require("../models/User");
-const Room = require("../models/Room");
 const Message = require("../models/Message");
 
-const handleSocket = (io) => {
+const connectedUsers = {}; // { userId: { _id, fullname, profile, socketId, isOnline } }
+
+const socketController = (io) => {
   io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
+    console.log("✅ A user connected:", socket.id);
 
-    socket.on("setOnline", async (userId) => {
-    await User.findByIdAndUpdate(userId, {
-      isOnline: true,
-      socketId: socket.id,
+    // When a user joins (after login)
+    socket.on("userConnected", (user) => {
+      if (!user || !user._id) return;
+
+      connectedUsers[user._id] = {
+        ...user,
+        socketId: socket.id,
+        isOnline: true,
+      };
+
+      console.log("👥 Connected users:", Object.keys(connectedUsers));
+      io.emit("allUsers", Object.values(connectedUsers));
     });
-    io.emit("userStatusChanged");
-  });
 
-    socket.on("joinRoom", async ({ username, room }) => {
+    // When a user sends a message
+    socket.on("chatMessage", async ({ senderId, receiverId, message }) => {
       try {
-        const user = await User.findOneAndUpdate(
-          { username },
-          { socketId: socket.id, room },
-          { new: true }
-        );
-
-        if (!user) return socket.emit("error", "User not found");
-
-        // Check if room exists
-        let roomDoc = await Room.findOne({ name: room });
-
-        if (!roomDoc) {
-          // Find all users assigned to this room
-          const usersInRoom = await User.find({ room });
-
-          if (usersInRoom.length >= 2) {
-            // Create room with users
-            const userIds = usersInRoom.map((u) => u._id);
-            roomDoc = await Room.create({ name: room, users: userIds });
-            console.log(`Room '${room}' created with ${userIds.length} users.`);
-          } else {
-            return socket.emit(
-              "error",
-              "At least 2 users are required to create a room."
-            );
-          }
-        }
-
-        socket.join(room);
-
-        const messages = await Message.find({ room }).sort({ createdAt: 1 });
-        socket.emit("chatHistory", messages);
-
-        const onlineUsers = await User.find({ room, socketId: { $ne: null } });
-        io.to(room).emit("onlineUsers", onlineUsers);
-      } catch (err) {
-        console.error("JoinRoom error:", err.message);
-        socket.emit("error", err.message);
-      }
-    });
-
-    socket.on("chatMessage", async ({ room, username, message }) => {
-      try {
-        const newMsg = await Message.create({ room, username, message });
-        io.to(room).emit("chatMessage", newMsg);
-      } catch (err) {
-        console.error("ChatMessage error:", err.message);
-      }
-    });
-
-    socket.on("typing", ({ room, username }) => {
-      socket.to(room).emit("typing", { username });
-    });
-
-    socket.on("disconnect", async () => {
-      try {
-        const user = await User.findOne({ socketId: socket.id });
-        if (!user) return;
-
-        const roomName = user.room;
-
-        await User.findByIdAndUpdate(user._id, { socketId: null, room: null });
-
-        const usersInRoom = await User.find({
-          room: roomName,
-          socketId: { $ne: null },
+        const newMessage = await Message.create({
+          senderId,
+          receiverId,
+          message,
         });
-        io.to(roomName).emit("onlineUsers", usersInRoom);
 
-        console.log("User disconnected:", socket.id);
+        // Emit message to both sender and receiver if they are connected
+        const senderSocket = connectedUsers[senderId]?.socketId;
+        const receiverSocket = connectedUsers[receiverId]?.socketId;
+
+        if (senderSocket) io.to(senderSocket).emit("chatMessage", newMessage);
+        if (receiverSocket)
+          io.to(receiverSocket).emit("chatMessage", newMessage);
       } catch (err) {
-        console.error("Disconnect error:", err.message);
+        console.error("❌ ChatMessage error:", err.message);
+      }
+    });
+
+    // Handle user disconnect
+    socket.on("disconnect", () => {
+      const disconnectedUserId = Object.keys(connectedUsers).find(
+        (key) => connectedUsers[key].socketId === socket.id
+      );
+
+      if (disconnectedUserId) {
+        delete connectedUsers[disconnectedUserId];
+        console.log(`❌ User disconnected: ${disconnectedUserId}`);
+        io.emit("allUsers", Object.values(connectedUsers));
       }
     });
   });
 };
 
-module.exports = handleSocket;
+module.exports = socketController;
