@@ -1,0 +1,26 @@
+.home-wrapper{
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.component-wrapper{
+    display: grid;
+    grid-template-columns: 1.5fr 2fr 1fr;
+    width: 80%;
+    backdrop-filter: blur(20px);
+    border: 2px solid #4b5563;
+    border-radius: 1rem;
+    overflow: hidden;
+    height: 80%;
+}
+
+.no-user{
+    grid-template-columns: 1.5fr 3fr;
+}
+
+.user-selected{
+    grid-template-columns: 1fr 2fr 1fr;
+}

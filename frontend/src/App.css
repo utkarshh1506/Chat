@@ -1,0 +1,4 @@
+.app-wrapper{
+  background-image: url('./assets/bgImage.svg');
+  background-size: contain;
+}
