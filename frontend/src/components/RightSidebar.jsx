@@ -13,7 +13,6 @@ const RightSideBar = ({
   const [newMessage, setNewMessage] = useState("");
   const [typingStatus, setTypingStatus] = useState(false);
   const messageEndRef = useRef(null);
-
   const isRoomChat = Boolean(selectedRoom);
 
   // Auto scroll to bottom
