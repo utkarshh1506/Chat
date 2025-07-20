@@ -11,6 +11,7 @@ const RightSideBar = ({
   socket,
 }) => {
   const [newMessage, setNewMessage] = useState("");
+  const [typingStatus, setTypingStatus] = useState(false);
   const messageEndRef = useRef(null);
 
   // Auto scroll to latest message
@@ -19,9 +20,79 @@ const RightSideBar = ({
   }, [messages]);
 
   // Listen for incoming messages via socket
+  useEffect(() => {
+    if (!socket || !currentUser || !selectedUser) return;
+
+    const handleIncomingMessage = (message) => {
+      const isRelevant =
+        (message.senderId === currentUser._id &&
+          message.receiverId === selectedUser._id) ||
+        (message.senderId === selectedUser._id &&
+          message.receiverId === currentUser._id);
+
+      if (isRelevant) {
+        setMessages((prev) => [...prev, message]);
+      }
+    };
+
+    socket.on("chatMessage", handleIncomingMessage);
+
+    return () => {
+      socket.off("chatMessage", handleIncomingMessage);
+    };
+  }, [socket, currentUser?._id, selectedUser?._id]);
+
+  // Handle typing indicator send
+  useEffect(() => {
+    if (!socket || !currentUser || !selectedUser) return;
+
+    const delay = 1000;
+    let typingTimeout;
+
+    const handleTyping = () => {
+      socket.emit("typing", {
+        from: currentUser._id,
+        to: selectedUser._id,
+        isTyping: true,
+      });
+
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        socket.emit("typing", {
+          from: currentUser._id,
+          to: selectedUser._id,
+          isTyping: false,
+        });
+      }, delay);
+    };
+
+    const input = document.getElementById("message-input");
+    if (input) {
+      input.addEventListener("input", handleTyping);
+    }
+
+    return () => {
+      if (input) input.removeEventListener("input", handleTyping);
+      clearTimeout(typingTimeout);
+    };
+  }, [socket, currentUser?._id, selectedUser?._id]);
+
+  // Listen to typing event from selected user
+  useEffect(() => {
+    if (!socket || !selectedUser) return;
+
+    const handleTyping = ({ from, isTyping }) => {
+      if (from === selectedUser._id) {
+        setTypingStatus(isTyping);
+      }
+    };
+
+    socket.on("typing", handleTyping);
+    return () => socket.off("typing", handleTyping);
+  }, [socket, selectedUser?._id]);
 
   // Send a message
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     const trimmed = newMessage.trim();
     if (!trimmed || !currentUser || !selectedUser) return;
@@ -32,10 +103,15 @@ const RightSideBar = ({
       message: trimmed,
     };
 
-    // Emit real-time message via socket (server handles DB save)
     socket.emit("chatMessage", messageData);
 
-    setNewMessage(""); // clear input
+    try {
+      await axios.post("/api/messages", messageData);
+    } catch (err) {
+      console.error("❌ Message save failed:", err.message);
+    }
+
+    setNewMessage("");
   };
 
   return (
@@ -50,7 +126,11 @@ const RightSideBar = ({
         <div className="selected-info">
           <h3>{selectedUser?.fullname}</h3>
           <span className={selectedUser?.isOnline ? "online" : "offline"}>
-            {selectedUser?.isOnline ? "Online" : "Offline"}
+            {typingStatus
+              ? "Typing..."
+              : selectedUser?.isOnline
+              ? "Online"
+              : "Offline"}
           </span>
         </div>
       </div>
@@ -66,7 +146,10 @@ const RightSideBar = ({
           >
             <p>{msg.message}</p>
             <small>
-              {msg.senderId === currentUser._id ? "You" : selectedUser.fullname}
+              {new Date(msg.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </small>
           </div>
         ))}
@@ -76,6 +159,7 @@ const RightSideBar = ({
       {/* Message input */}
       <form className="message-input" onSubmit={handleSend}>
         <input
+          id="message-input"
           type="text"
           placeholder="Type a message..."
           value={newMessage}

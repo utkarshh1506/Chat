@@ -1,6 +1,6 @@
 const Message = require("../models/Message");
 
-const connectedUsers = {}; // { userId: { _id, fullname, profile, socketId, isOnline } }
+const connectedUsers = {}; // { userId: { _id, fullname, profile, socketIds: [], isOnline } }
 
 const socketController = (io) => {
   io.on("connection", (socket) => {
@@ -10,14 +10,19 @@ const socketController = (io) => {
     socket.on("userConnected", (user) => {
       if (!user || !user._id) return;
 
-      connectedUsers[user._id] = {
-        ...user,
-        socketId: socket.id,
-        isOnline: true,
-      };
+      if (!connectedUsers[user._id]) {
+        connectedUsers[user._id] = {
+          ...user,
+          socketIds: [],
+          isOnline: true,
+        };
+      }
+
+      connectedUsers[user._id].socketIds.push(socket.id);
+      connectedUsers[user._id].isOnline = true;
 
       console.log("👥 Connected users:", Object.keys(connectedUsers));
-      io.emit("allUsers", Object.values(connectedUsers));
+      io.emit("userStatusChanged", Object.values(connectedUsers));
     });
 
     // When a user sends a message
@@ -29,22 +34,21 @@ const socketController = (io) => {
           message,
         });
 
-        // Emit message to both sender and receiver if they are connected
         const cleanMsg = {
-          ...newMessage._doc, // spreads the plain object
+          ...newMessage._doc,
           senderId: newMessage.senderId.toString(),
           receiverId: newMessage.receiverId.toString(),
         };
 
-        const senderSocketId = connectedUsers[senderId]?.socketId;
-        const receiverSocketId = connectedUsers[receiverId]?.socketId;
+        const senderSockets = connectedUsers[senderId]?.socketIds || [];
+        const receiverSockets = connectedUsers[receiverId]?.socketIds || [];
 
-        if (senderSocketId) {
-          io.to(senderSocketId).emit("chatMessage", cleanMsg);
-        }
-        if (receiverSocketId && receiverSocketId !== senderSocketId) {
-          io.to(receiverSocketId).emit("chatMessage", cleanMsg);
-        }
+        senderSockets.forEach((id) => io.to(id).emit("chatMessage", cleanMsg));
+        receiverSockets.forEach((id) => {
+          if (!senderSockets.includes(id)) {
+            io.to(id).emit("chatMessage", cleanMsg);
+          }
+        });
 
         console.log("📤 Message sent:", cleanMsg);
       } catch (err) {
@@ -52,16 +56,29 @@ const socketController = (io) => {
       }
     });
 
-    // Handle user disconnect
+    socket.on("typing", ({ from, to, isTyping }) => {
+      const receiverSockets = connectedUsers[to]?.socketIds || [];
+      receiverSockets.forEach((id) => {
+        io.to(id).emit("typing", { from, isTyping });
+      });
+    });
+
+    // Handle disconnect
     socket.on("disconnect", () => {
-      const disconnectedUserId = Object.keys(connectedUsers).find(
-        (key) => connectedUsers[key].socketId === socket.id
+      const userId = Object.keys(connectedUsers).find((key) =>
+        connectedUsers[key].socketIds.includes(socket.id)
       );
 
-      if (disconnectedUserId) {
-        delete connectedUsers[disconnectedUserId];
-        console.log(`❌ User disconnected: ${disconnectedUserId}`);
-        io.emit("allUsers", Object.values(connectedUsers));
+      if (userId) {
+        const user = connectedUsers[userId];
+        user.socketIds = user.socketIds.filter((id) => id !== socket.id);
+
+        if (user.socketIds.length === 0) {
+          user.isOnline = false;
+        }
+
+        console.log(`❌ Disconnected socket ${socket.id} for user ${userId}`);
+        io.emit("userStatusChanged", Object.values(connectedUsers));
       }
     });
   });
