@@ -16,7 +16,7 @@ const HomePage = () => {
 
   // 1. Connect socket
   useEffect(() => {
-    const newSocket = io("http://localhost:5000");
+    const newSocket = io("https://chat-xiey.onrender.com");
     setSocket(newSocket);
     return () => newSocket.disconnect();
   }, []);
