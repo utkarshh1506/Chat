@@ -19,31 +19,9 @@ const RightSideBar = ({
   }, [messages]);
 
   // Listen for incoming messages via socket
-  useEffect(() => {
-    if (!socket || !currentUser || !selectedUser) return;
-
-    const handleIncomingMessage = (message) => {
-      console.log("📩 Incoming Socket Message:", message);
-      const isRelevant =
-        (message.senderId === currentUser._id &&
-          message.receiverId === selectedUser._id) ||
-        (message.senderId === selectedUser._id &&
-          message.receiverId === currentUser._id);
-
-      if (isRelevant) {
-        setMessages((prev) => [...prev, message]);
-      }
-    };
-
-    socket.on("chatMessage", handleIncomingMessage);
-
-    return () => {
-      socket.off("chatMessage", handleIncomingMessage);
-    };
-  }, [socket, currentUser?._id, selectedUser?._id]);
 
   // Send a message
-  const handleSend = async (e) => {
+  const handleSend = (e) => {
     e.preventDefault();
     const trimmed = newMessage.trim();
     if (!trimmed || !currentUser || !selectedUser) return;
@@ -54,17 +32,10 @@ const RightSideBar = ({
       message: trimmed,
     };
 
-    // Emit real-time message via socket
+    // Emit real-time message via socket (server handles DB save)
     socket.emit("chatMessage", messageData);
 
-    // Save to DB
-    try {
-      await axios.post("/api/messages", messageData);
-    } catch (err) {
-      console.error("❌ Message save failed:", err.message);
-    }
-
-    setNewMessage("");
+    setNewMessage(""); // clear input
   };
 
   return (
