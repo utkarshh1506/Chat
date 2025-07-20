@@ -22,7 +22,7 @@ const HomePage = () => {
     };
   }, []);
 
-  // 2. Fetch users immediately on load (not waiting for socket)
+  // 2. Fetch users immediately on load
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -42,10 +42,10 @@ const HomePage = () => {
     fetchData();
   }, []);
 
-  // 3. Emit online status once loggedInUser and socket are both available
+  // 3. Emit userConnected once user and socket are ready
   useEffect(() => {
     if (socket && loggedInUser?._id) {
-      socket.emit("setOnline", loggedInUser._id);
+      socket.emit("userConnected", loggedInUser);
     }
   }, [socket, loggedInUser]);
 
@@ -63,6 +63,8 @@ const HomePage = () => {
       socket.off("userStatusChanged", handleUserStatusChange);
     };
   }, [socket]);
+
+  // 5. Update selectedUser if online status changes
   useEffect(() => {
     if (!selectedUser || allUsers.length === 0) return;
 
@@ -72,6 +74,7 @@ const HomePage = () => {
     }
   }, [allUsers, selectedUser]);
 
+  // 6. Fetch chat messages on user selection
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedUser || !loggedInUser) return;
@@ -93,6 +96,29 @@ const HomePage = () => {
     fetchMessages();
   }, [selectedUser, loggedInUser]);
 
+  // 7. Real-time message listener
+  useEffect(() => {
+    if (!socket || !loggedInUser) return;
+
+    const handleIncomingMessage = (newMsg) => {
+      const isForCurrentChat =
+        (newMsg.senderId === loggedInUser._id &&
+          newMsg.receiverId === selectedUser?._id) ||
+        (newMsg.receiverId === loggedInUser._id &&
+          newMsg.senderId === selectedUser?._id);
+
+      if (isForCurrentChat) {
+        setMessages((prev) => [...prev, newMsg]);
+      }
+    };
+
+    socket.on("chatMessage", handleIncomingMessage);
+
+    return () => {
+      socket.off("chatMessage", handleIncomingMessage);
+    };
+  }, [socket, selectedUser, loggedInUser]);
+
   return (
     <div className="home-wrapper">
       <div
@@ -107,7 +133,6 @@ const HomePage = () => {
           setSelectedUser={setSelectedUser}
         />
 
-        {/* Only show RightSidebar when a user is selected */}
         {selectedUser && (
           <RightSidebar
             currentUser={loggedInUser}

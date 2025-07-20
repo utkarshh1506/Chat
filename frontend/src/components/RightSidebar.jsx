@@ -13,15 +13,17 @@ const RightSideBar = ({
   const [newMessage, setNewMessage] = useState("");
   const messageEndRef = useRef(null);
 
-  // Scroll to bottom on new message
+  // Auto scroll to latest message
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Listen for incoming socket messages
+  // Listen for incoming messages via socket
   useEffect(() => {
+    if (!socket || !currentUser || !selectedUser) return;
+
     const handleIncomingMessage = (message) => {
-      // Show only if it's from/to the selected user
+      console.log("📩 Incoming Socket Message:", message);
       const isRelevant =
         (message.senderId === currentUser._id &&
           message.receiverId === selectedUser._id) ||
@@ -34,26 +36,32 @@ const RightSideBar = ({
     };
 
     socket.on("chatMessage", handleIncomingMessage);
-    return () => socket.off("chatMessage", handleIncomingMessage);
-  }, [socket, currentUser, selectedUser]);
 
-  // Send message
+    return () => {
+      socket.off("chatMessage", handleIncomingMessage);
+    };
+  }, [socket, currentUser?._id, selectedUser?._id]);
+
+  // Send a message
   const handleSend = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    const trimmed = newMessage.trim();
+    if (!trimmed || !currentUser || !selectedUser) return;
 
     const messageData = {
       senderId: currentUser._id,
       receiverId: selectedUser._id,
-      message: newMessage,
+      message: trimmed,
     };
 
+    // Emit real-time message via socket
     socket.emit("chatMessage", messageData);
 
+    // Save to DB
     try {
       await axios.post("/api/messages", messageData);
     } catch (err) {
-      console.error("Failed to save message", err);
+      console.error("❌ Message save failed:", err.message);
     }
 
     setNewMessage("");

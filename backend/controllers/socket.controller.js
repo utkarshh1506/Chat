@@ -30,12 +30,23 @@ const socketController = (io) => {
         });
 
         // Emit message to both sender and receiver if they are connected
-        const senderSocket = connectedUsers[senderId]?.socketId;
-        const receiverSocket = connectedUsers[receiverId]?.socketId;
+        const cleanMsg = {
+          ...newMessage._doc, // spreads the plain object
+          senderId: newMessage.senderId.toString(),
+          receiverId: newMessage.receiverId.toString(),
+        };
 
-        if (senderSocket) io.to(senderSocket).emit("chatMessage", newMessage);
-        if (receiverSocket)
-          io.to(receiverSocket).emit("chatMessage", newMessage);
+        const senderSocketId = connectedUsers[senderId]?.socketId;
+        const receiverSocketId = connectedUsers[receiverId]?.socketId;
+
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("chatMessage", cleanMsg);
+        }
+        if (receiverSocketId && receiverSocketId !== senderSocketId) {
+          io.to(receiverSocketId).emit("chatMessage", cleanMsg);
+        }
+
+        console.log("📤 Message sent:", cleanMsg);
       } catch (err) {
         console.error("❌ ChatMessage error:", err.message);
       }

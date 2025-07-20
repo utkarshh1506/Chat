@@ -3,11 +3,10 @@ const http = require('http');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const { Server } = require('socket.io');
-const socketIO = require('./socket');
-const userRoute = require('./routes/userRoute')
+const userRoute = require('./routes/userRoute');
 const messageRoutes = require("./routes/messageRoutes");
-require('dotenv').config();
 const socketHandler = require('./controllers/socket.controller');
+require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
@@ -15,24 +14,25 @@ const server = http.createServer(app);
 // Middlewares
 app.use(cors({
   origin: 'http://localhost:5173',
-  credentials:true
+  credentials: true
 }));
 app.use(express.json());
 
-// Socket.io setup
-const io = socketIO.init(new Server(server, {
+// Socket.io setup (no socket.js needed)
+const io = new Server(server, {
   cors: {
     origin: 'http://localhost:5173',
     methods: ['GET', 'POST'],
+    credentials: true
   }
-}))
+});
+socketHandler(io);
 
-
-
-app.use('/api/users', userRoute)
+// API Routes
+app.use('/api/users', userRoute);
 app.use("/api/messages", messageRoutes);
 
-// Connect MongoDB
+// MongoDB Connection
 mongoose
   .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
@@ -41,19 +41,12 @@ mongoose
   .then(() => console.log('✅ MongoDB connected'))
   .catch((err) => console.error('❌ MongoDB connection error:', err));
 
-// Routes (you can expand later)
+// Default Route
 app.get('/', (req, res) => {
   res.send('🚀 Real-time Chat Backend is Running');
 });
-
-// Delegate socket handling
-socketHandler(io);
-
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
 });
-
-
-
