@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import "./RightSideBar.css";
+import "./RightSidebar.css";
 import assets from "../assets/assets";
 import axios from "../api/axios.config";
 
