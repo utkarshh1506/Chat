@@ -6,45 +6,24 @@ import axios from "../api/axios.config";
 const RightSideBar = ({
   currentUser,
   selectedUser,
+  selectedRoom,
   messages,
-  setMessages,
   socket,
 }) => {
   const [newMessage, setNewMessage] = useState("");
   const [typingStatus, setTypingStatus] = useState(false);
   const messageEndRef = useRef(null);
 
-  // Auto scroll to latest message
+  const isRoomChat = Boolean(selectedRoom);
+
+  // Auto scroll to bottom
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Listen for incoming messages via socket
+  // Typing indicator for 1-to-1 chats
   useEffect(() => {
-    if (!socket || !currentUser || !selectedUser) return;
-
-    const handleIncomingMessage = (message) => {
-      const isRelevant =
-        (message.senderId === currentUser._id &&
-          message.receiverId === selectedUser._id) ||
-        (message.senderId === selectedUser._id &&
-          message.receiverId === currentUser._id);
-
-      if (isRelevant) {
-        setMessages((prev) => [...prev, message]);
-      }
-    };
-
-    socket.on("chatMessage", handleIncomingMessage);
-
-    return () => {
-      socket.off("chatMessage", handleIncomingMessage);
-    };
-  }, [socket, currentUser?._id, selectedUser?._id]);
-
-  // Handle typing indicator send
-  useEffect(() => {
-    if (!socket || !currentUser || !selectedUser) return;
+    if (!socket || !currentUser || !selectedUser || isRoomChat) return;
 
     const delay = 1000;
     let typingTimeout;
@@ -67,19 +46,17 @@ const RightSideBar = ({
     };
 
     const input = document.getElementById("message-input");
-    if (input) {
-      input.addEventListener("input", handleTyping);
-    }
+    input?.addEventListener("input", handleTyping);
 
     return () => {
-      if (input) input.removeEventListener("input", handleTyping);
+      input?.removeEventListener("input", handleTyping);
       clearTimeout(typingTimeout);
     };
-  }, [socket, currentUser?._id, selectedUser?._id]);
+  }, [socket, currentUser, selectedUser, isRoomChat]);
 
-  // Listen to typing event from selected user
+  // Listen to typing for 1-to-1
   useEffect(() => {
-    if (!socket || !selectedUser) return;
+    if (!socket || !selectedUser || isRoomChat) return;
 
     const handleTyping = ({ from, isTyping }) => {
       if (from === selectedUser._id) {
@@ -89,74 +66,117 @@ const RightSideBar = ({
 
     socket.on("typing", handleTyping);
     return () => socket.off("typing", handleTyping);
-  }, [socket, selectedUser?._id]);
+  }, [socket, selectedUser, isRoomChat]);
 
-  // Send a message
+  // Handle Send
   const handleSend = async (e) => {
     e.preventDefault();
     const trimmed = newMessage.trim();
-    if (!trimmed || !currentUser || !selectedUser) return;
+    if (!trimmed || !currentUser) return;
 
-    const messageData = {
-      senderId: currentUser._id,
-      receiverId: selectedUser._id,
-      message: trimmed,
-    };
+    if (isRoomChat) {
+      const payload = {
+        roomId: selectedRoom._id,
+        senderId: currentUser._id,
+        message: trimmed,
+      };
 
-    socket.emit("chatMessage", messageData);
+      socket.emit("roomMessage", payload);
 
-    try {
-      await axios.post("/api/messages", messageData);
-    } catch (err) {
-      console.error("❌ Message save failed:", err.message);
+      try {
+        await axios.post("/api/room-messages", payload);
+      } catch (err) {
+        console.error("Room message save failed:", err.message);
+      }
+    } else {
+      const payload = {
+        senderId: currentUser._id,
+        receiverId: selectedUser._id,
+        message: trimmed,
+      };
+
+      socket.emit("chatMessage", payload);
+
+      try {
+        await axios.post("/api/messages", payload);
+      } catch (err) {
+        console.error("1-to-1 message save failed:", err.message);
+      }
     }
 
     setNewMessage("");
   };
 
+  // Message bubble renderer
+  const renderMessages = () => {
+    return messages.map((msg, index) => {
+      const isSentByMe =
+        msg.senderId === currentUser._id ||
+        msg.senderId?._id === currentUser._id;
+
+      const senderName =
+        isRoomChat && msg.senderId?.fullname
+          ? msg.senderId.fullname
+          : isSentByMe
+          ? "You"
+          : selectedUser?.fullname || "User";
+
+      return (
+        <div
+          key={index}
+          className={`message-card ${isSentByMe ? "sent" : "received"}`}
+        >
+          {isRoomChat && !isSentByMe && (
+            <div className="room-msg-sender">
+              <strong>{senderName}</strong>
+            </div>
+          )}
+          <p>{msg.message}</p>
+          <small>
+            {new Date(msg.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </small>
+        </div>
+      );
+    });
+  };
+
   return (
     <div className="rightbar">
-      {/* Top user info */}
+      {/* Header */}
       <div className="rightbar-top">
         <img
-          src={selectedUser?.profile || assets.avatar_icon}
-          alt="profile"
+          src={
+            isRoomChat
+              ? selectedRoom?.roomImg || assets.avatar_icon
+              : selectedUser?.profile || assets.avatar_icon
+          }
+          alt="chat"
           className="selected-profile"
         />
         <div className="selected-info">
-          <h3>{selectedUser?.fullname}</h3>
-          <span className={selectedUser?.isOnline ? "online" : "offline"}>
-            {typingStatus
-              ? "Typing..."
-              : selectedUser?.isOnline
-              ? "Online"
-              : "Offline"}
-          </span>
+          <h3>{isRoomChat ? selectedRoom?.name : selectedUser?.fullname}</h3>
+          {!isRoomChat && (
+            <span className={selectedUser?.isOnline ? "online" : "offline"}>
+              {typingStatus
+                ? "Typing..."
+                : selectedUser?.isOnline
+                ? "Online"
+                : "Offline"}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Chat messages */}
+      {/* Messages */}
       <div className="message-area">
-        {messages.map((msg, index) => (
-          <div
-            key={index}
-            className={`message-card ${
-              msg.senderId === currentUser._id ? "sent" : "received"
-            }`}
-          >
-            <p>{msg.message}</p>
-            <small>
-              {new Date(msg.createdAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </small>
-          </div>
-        ))}
+        {renderMessages()}
         <div ref={messageEndRef} />
       </div>
 
-      {/* Message input */}
+      {/* Message Input */}
       <form className="message-input" onSubmit={handleSend}>
         <input
           id="message-input"

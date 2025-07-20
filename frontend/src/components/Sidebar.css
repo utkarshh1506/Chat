@@ -11,31 +11,31 @@
   align-items: center;
 }
 
-.sidebar-top img{
-    height: 40px;
-    width: 40px;
-    border-radius: 50%;
+.sidebar-top img {
+  height: 40px;
+  width: 40px;
+  border-radius: 50%;
 }
 
 .menu-btn {
-    background: transparent;
-    padding: 0;
-    margin: 0;
-    border: none;
-    cursor: pointer;
-    position: relative;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  border: none;
+  cursor: pointer;
+  position: relative;
 }
-.menu-btn img{
-    height: 20px;
-    width: 20px;
+.menu-btn img {
+  height: 20px;
+  width: 20px;
 }
 
-.search-bar{
-    padding: 10px 15px;
-    border-radius: 50px;
-    background: transparent;
-    border: 1px solid white;
-    color: white;
+.search-bar {
+  padding: 10px 15px;
+  border-radius: 50px;
+  background: transparent;
+  border: 1px solid white;
+  color: white;
 }
 
 .user-list {
@@ -49,7 +49,7 @@
 .user-card {
   display: flex;
   padding: 8px;
-  gap:8px;
+  gap: 8px;
   cursor: pointer;
   border-radius: 8px;
   background: transparent;
@@ -58,16 +58,16 @@
   border-radius: 50px;
 }
 
-.user-card img{
+.user-card img {
   height: 50px;
   border-radius: 50%;
 }
 
-.username{
+.username {
   color: white;
 }
 
-.menu-wrapper{
+.menu-wrapper {
   position: relative;
 }
 .dropdown-menu {
@@ -95,6 +95,37 @@
   background-color: #f0f0f0;
 }
 
+.room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
+.room-list h4 {
+  color: white;
+}
 
+.room-card {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: background 0.2s ease;
+}
 
+.room-card:hover {
+  background-color: #f2f2f2;
+}
+
+.room-card.selected {
+  background-color: #d8e8ff;
+}
+
+.room-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  margin-right: 10px;
+}

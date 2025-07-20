@@ -5,6 +5,9 @@ import { useNavigate } from "react-router-dom";
 
 const Sidebar = ({
   users = [],
+  rooms = [],
+  selectedRoomId,
+  setSelectedRoom,
   currentUser,
   setSelectedUser,
   selectedUserId,
@@ -91,6 +94,38 @@ const Sidebar = ({
           <p className="no-users">No users found</p>
         )}
       </div>
+      {/* Room List */}
+      {/* Room List - Moved Up */}
+      {rooms.length > 0 && (
+        <div className="room-list">
+          <h4 className="room-heading">Rooms</h4>
+          {rooms
+            .filter((room) =>
+              room.name.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .map((room) => (
+              <div
+                key={room._id}
+                className={`room-card ${
+                  selectedRoomId === room._id ? "selected" : ""
+                }`}
+                onClick={() => {
+                  setSelectedRoom(room);
+                  setSelectedUser(null);
+                }}
+              >
+                <img
+                  src={room.roomImg || assets.avatar_icon}
+                  alt={room.name}
+                  className="room-img"
+                />
+                <div className="user-info">
+                  <span className="username">{room.name}</span>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -7,22 +7,21 @@ import { io } from "socket.io-client";
 
 const HomePage = () => {
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null); // ✅ Only once
   const [allUsers, setAllUsers] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [loggedInUser, setLoggedInUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [socket, setSocket] = useState(null);
 
-  // 1. Establish socket connection
+  // 1. Connect socket
   useEffect(() => {
     const newSocket = io("http://localhost:5000");
     setSocket(newSocket);
-
-    return () => {
-      newSocket.disconnect();
-    };
+    return () => newSocket.disconnect();
   }, []);
 
-  // 2. Fetch users immediately on load
+  // 2. Fetch current user, all users, rooms
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -34,22 +33,27 @@ const HomePage = () => {
 
         const res2 = await axios.get("/api/users/all", { headers });
         setAllUsers(res2.data);
+
+        const res3 = await axios.get(`/api/rooms/user/${res1.data._id}`, {
+          headers,
+        });
+        setRooms(res3.data);
       } catch (error) {
-        console.error("Error fetching users:", error);
+        console.error("Error fetching users or rooms:", error);
       }
     };
 
     fetchData();
   }, []);
 
-  // 3. Emit userConnected once user and socket are ready
+  // 3. Emit userConnected
   useEffect(() => {
     if (socket && loggedInUser?._id) {
       socket.emit("userConnected", loggedInUser);
     }
   }, [socket, loggedInUser]);
 
-  // 4. Listen for user status change
+  // 4. Track user status changes
   useEffect(() => {
     if (!socket) return;
 
@@ -58,87 +62,101 @@ const HomePage = () => {
     };
 
     socket.on("userStatusChanged", handleUserStatusChange);
-
-    return () => {
-      socket.off("userStatusChanged", handleUserStatusChange);
-    };
+    return () => socket.off("userStatusChanged", handleUserStatusChange);
   }, [socket]);
 
-  // 5. Update selectedUser if online status changes
+  // 5. Refresh selectedUser if status changed
   useEffect(() => {
     if (!selectedUser || allUsers.length === 0) return;
-
     const updated = allUsers.find((u) => u._id === selectedUser._id);
-    if (updated) {
-      setSelectedUser(updated);
-    }
+    if (updated) setSelectedUser(updated);
   }, [allUsers, selectedUser]);
 
-  // 6. Fetch chat messages on user selection
+  // 6. Fetch messages
   useEffect(() => {
     const fetchMessages = async () => {
-      if (!selectedUser || !loggedInUser) return;
+      const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
 
       try {
-        const token = localStorage.getItem("token");
-        const headers = { Authorization: `Bearer ${token}` };
-
-        const res = await axios.get(
-          `/api/messages/${loggedInUser._id}/${selectedUser._id}`,
-          { headers }
-        );
-        setMessages(res.data);
+        if (selectedUser && loggedInUser) {
+          const res = await axios.get(
+            `/api/messages/${loggedInUser._id}/${selectedUser._id}`,
+            { headers }
+          );
+          setMessages(res.data);
+        } else if (selectedRoom) {
+          const res = await axios.get(
+            `/api/room-messages/${selectedRoom._id}`,
+            { headers }
+          );
+          setMessages(res.data);
+        }
       } catch (err) {
-        console.error("Failed to load chat messages", err);
+        console.error("Failed to fetch messages", err);
       }
     };
 
     fetchMessages();
-  }, [selectedUser, loggedInUser]);
+  }, [selectedUser, selectedRoom, loggedInUser]);
 
-  // 7. Real-time message listener
+  // 7. Real-time incoming messages
   useEffect(() => {
     if (!socket || !loggedInUser) return;
 
-    const handleIncomingMessage = (newMsg) => {
-      const isForCurrentChat =
-        (newMsg.senderId === loggedInUser._id &&
-          newMsg.receiverId === selectedUser?._id) ||
-        (newMsg.receiverId === loggedInUser._id &&
-          newMsg.senderId === selectedUser?._id);
+    const handleIncomingMessage = (msg) => {
+      const isDM =
+        selectedUser &&
+        ((msg.senderId === loggedInUser._id &&
+          msg.receiverId === selectedUser._id) ||
+          (msg.receiverId === loggedInUser._id &&
+            msg.senderId === selectedUser._id));
 
-      if (isForCurrentChat) {
-        setMessages((prev) => [...prev, newMsg]);
+      const isRoomMsg = selectedRoom && msg.roomId === selectedRoom._id;
+
+      if (isDM || isRoomMsg) {
+        setMessages((prev) => [...prev, msg]);
       }
     };
 
     socket.on("chatMessage", handleIncomingMessage);
+    socket.on("roomMessage", handleIncomingMessage);
 
     return () => {
       socket.off("chatMessage", handleIncomingMessage);
+      socket.off("roomMessage", handleIncomingMessage);
     };
-  }, [socket, selectedUser, loggedInUser]);
+  }, [socket, selectedUser, selectedRoom, loggedInUser]);
 
   return (
     <div className="home-wrapper">
       <div
         className={`component-wrapper ${
-          selectedUser ? "user-selected" : "no-user"
+          selectedUser || selectedRoom ? "user-selected" : "no-user"
         }`}
       >
         <Sidebar
           users={allUsers}
+          rooms={rooms}
           currentUser={loggedInUser}
           selectedUserId={selectedUser?._id}
-          setSelectedUser={setSelectedUser}
+          selectedRoomId={selectedRoom?._id}
+          setSelectedUser={(user) => {
+            setSelectedUser(user);
+            setSelectedRoom(null);
+          }}
+          setSelectedRoom={(room) => {
+            setSelectedRoom(room);
+            setSelectedUser(null);
+          }}
         />
 
-        {selectedUser && (
+        {(selectedUser || selectedRoom) && (
           <RightSidebar
             currentUser={loggedInUser}
             selectedUser={selectedUser}
+            selectedRoom={selectedRoom}
             messages={messages}
-            setMessages={setMessages}
             socket={socket}
           />
         )}

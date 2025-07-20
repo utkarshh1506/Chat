@@ -1,0 +1,119 @@
+.rightbar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: transparent;
+  border-left: 1px solid white;
+  color: white;
+  overflow: hidden;
+}
+
+/* Header Section */
+.rightbar-top {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid white;
+  position: sticky;
+  top: 0;
+  background: rgba(0, 0, 0, 0.5); /* ensures blur remains visible */
+  z-index: 10;
+}
+
+.selected-profile {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: 10px;
+  object-fit: cover;
+}
+
+.selected-info h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.selected-info span.online {
+  color: #4ade80; /* green-400 */
+  font-size: 0.8rem;
+}
+
+.selected-info span.offline {
+  color: #f87171; /* red-400 */
+  font-size: 0.8rem;
+}
+
+/* Messages Section */
+.message-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  max-height: calc(100% - 140px);
+  display: flex;
+  flex-direction: column;
+}
+.message-area::-webkit-scrollbar {
+  width: 6px;
+}
+.message-area::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+/* Message Card Styles */
+.message-card {
+  max-width: 60%;
+  padding: 10px;
+  margin: 6px 0;
+  border-radius: 10px;
+  background: #f1f1f1;
+  color: black;
+  font-size: 0.95rem;
+  word-wrap: break-word;
+}
+
+.message-card.sent {
+  background: #dcf8c6;
+  margin-left: auto;
+  text-align: right;
+}
+
+.message-card.received {
+  background: #fff;
+  margin-right: auto;
+  text-align: left;
+}
+
+/* Input Section */
+.message-input {
+  padding: 10px;
+  border-top: 1px solid white;
+  display: flex;
+  gap: 10px;
+  background: transparent;
+}
+
+.message-input input {
+  flex: 1;
+  padding: 10px 15px;
+  border-radius: 20px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+  background: #fff;
+  color: black;
+}
+
+.message-input button {
+  width: 80px;
+  border-radius: 20px;
+  border: 1px solid white;
+  color: white;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.message-input button:hover {
+  background: white;
+  color: black;
+}

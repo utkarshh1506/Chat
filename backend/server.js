@@ -6,7 +6,10 @@ const { Server } = require('socket.io');
 const userRoute = require('./routes/userRoute');
 const messageRoutes = require("./routes/messageRoutes");
 const socketHandler = require('./controllers/socket.controller');
+const roomRoute = require('./routes/roomRoute')
+const roomMessageRoutes = require('./routes/roomMessageRoutes')
 require('dotenv').config();
+
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +34,8 @@ socketHandler(io);
 // API Routes
 app.use('/api/users', userRoute);
 app.use("/api/messages", messageRoutes);
+app.use('/api/rooms',roomRoute)
+app.use('/api/room-messages', roomMessageRoutes)
 
 // MongoDB Connection
 mongoose

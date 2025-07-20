@@ -4,6 +4,7 @@ import HomePage from './Pages/HomePage'
 import LoginPage from './Pages/LoginPage'
 import ProfilePage from './Pages/ProfilePage'
 import './App.css'
+import CreateRoom from './Pages/CreateRoom'
 
 const App = () => {
   return (
@@ -12,6 +13,7 @@ const App = () => {
         <Route path='/' element={<HomePage/>}/>
         <Route path='/login' element={<LoginPage/>}/>
         <Route path='/profile' element={<ProfilePage/>}/>
+        <Route path='/create-room' element={<CreateRoom/>}/>
       </Routes>
     </div>
   )
