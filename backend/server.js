@@ -16,7 +16,7 @@ const server = http.createServer(app);
 
 // Middlewares
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: ['http://localhost:5173','https://chat-iota-nine-39.vercel.app'],
   credentials: true
 }));
 app.use(express.json());
@@ -24,7 +24,7 @@ app.use(express.json());
 // Socket.io setup (no socket.js needed)
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173',
+    origin: ['http://localhost:5173','https://chat-iota-nine-39.vercel.app'],
     methods: ['GET', 'POST'],
     credentials: true
   }
